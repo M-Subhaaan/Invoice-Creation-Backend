@@ -18,7 +18,6 @@ const vendorSchema = new mongoose.Schema(
     phone: {
       type: String,
       required: [true, "Vendor phone is required"],
-      unique: true,
     },
 
     address: {
