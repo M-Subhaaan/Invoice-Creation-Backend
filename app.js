@@ -6,6 +6,7 @@ const cookieParser = require("cookie-parser");
 const authRouter = require("./routes/authRouter");
 const vendorRouter = require("./routes/vendorRouter");
 const productRouter = require("./routes/productRouter");
+const poRouter = require("./routes/poRouter");
 
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/errorControler");
@@ -25,6 +26,7 @@ app.use(
 app.use("/api/v1/users", authRouter);
 app.use("/api/v1/vendors", vendorRouter);
 app.use("/api/v1/products", productRouter);
+app.use("/api/v1/purchase-orders", poRouter);
 
 app.use((req, res, next) => {
   return next(
