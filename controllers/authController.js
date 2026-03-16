@@ -139,11 +139,12 @@ exports.adminSignUp = catchAsync(async (req, res, next) => {
 
 exports.login = catchAsync(async (req, res, next) => {
   let { email, password } = req.body;
-  email = email.toLowerCase();
 
   if (!email || !password) {
     return next(AppError("Please Provide Both Email and Password", 400));
   }
+
+  email = email.toLowerCase();
 
   const user = await User.findOne({ email }).select("+password");
 
@@ -165,7 +166,6 @@ exports.login = catchAsync(async (req, res, next) => {
     data: {
       user: {
         _id: user._id,
-        profilePic: user.profilePic,
         name: user.name,
         email: user.email,
         role: user.role,
@@ -176,10 +176,12 @@ exports.login = catchAsync(async (req, res, next) => {
 
 exports.forgetPassword = catchAsync(async (req, res, next) => {
   let email = req.body.email;
-  email = email.toLowerCase();
+
   if (!email) {
     return next(AppError("Please Provide an Email Address", 400));
   }
+
+  email = email.toLowerCase();
 
   const user = await User.findOne({ email }).select("+password");
 
@@ -200,6 +202,14 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
     email: user.email,
     subject: "Reset Your Password (VALID FOR 10 MIN)",
     message: message,
+    html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2>Password Reset Request</h2>
+          <p>Hello,</p>
+          <p>We received a request to reset your password. Click the button below to proceed:</p>
+          <a href="${resetURL}" style="background:#28a745; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px;">Reset Password</a>
+          <p>If you did not request this, please ignore this email.</p>
+        </div>`,
   });
 
   res.status(200).json({

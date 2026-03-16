@@ -1,5 +1,5 @@
 const User = require("../models/userModel");
-const { applyApiFeatures } = require("../utils/applyApiFeatures");
+const { applyAPIFeatures } = require("../utils/applyApiFeatures");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 
@@ -16,7 +16,7 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await applyApiFeatures(User.find(), req.query);
+  const users = await applyAPIFeatures(User.find(), req.query);
   res.status(200).json({
     status: "Success",
     results: users.length,

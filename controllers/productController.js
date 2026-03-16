@@ -1,10 +1,10 @@
 const Product = require("../models/productModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
-const { applyApiFeatures } = require("../utils/applyApiFeatures");
+const { applyAPIFeatures } = require("../utils/applyApiFeatures");
 
 exports.getProducts = catchAsync(async (req, res) => {
-  const products = await applyApiFeatures(Product.find(), req.query);
+  const products = await applyAPIFeatures(Product.find(), req.query);
 
   res.status(200).json({
     status: "success",

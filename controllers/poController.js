@@ -3,16 +3,16 @@ const Vendor = require("../models/vendorModel");
 const Product = require("../models/productModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
-const { applyApiFeatures } = require("../utils/applyApiFeatures");
+const { applyAPIFeatures } = require("../utils/applyApiFeatures");
 
 exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
   const query = PurchaseOrder.find()
     .populate("vendor", "name email")
     .populate("items.product", "name sku");
 
-  const POs = await applyApiFeatures(query, req.query);
+  const POs = await applyAPIFeatures(query, req.query);
 
-  const totalCount = await Po.countDocuments();
+  const totalCount = await PurchaseOrder.countDocuments();
 
   res.status(200).json({
     status: "success",
@@ -60,20 +60,20 @@ exports.createPO = catchAsync(async (req, res, next) => {
     if (!productExists) {
       return next(AppError(`Product not found: ${items[i].product}`, 404));
     }
-
-    const po = await PurchaseOrder.create({
-      vendor,
-      items,
-      createdBy: req.user._id,
-    });
-
-    res.status(201).json({
-      status: "success",
-      data: {
-        po,
-      },
-    });
   }
+
+  const po = await PurchaseOrder.create({
+    vendor,
+    items,
+    createdBy: req.user._id,
+  });
+
+  res.status(201).json({
+    status: "success",
+    data: {
+      po,
+    },
+  });
 });
 
 exports.updatePoStatus = catchAsync(async (req, res, next) => {
