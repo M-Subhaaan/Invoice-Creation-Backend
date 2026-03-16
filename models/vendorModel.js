@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const validator = require("validator");
 
 const vendorSchema = new mongoose.Schema(
   {
@@ -13,11 +14,18 @@ const vendorSchema = new mongoose.Schema(
       required: [true, "Vendor email is required"],
       unique: true,
       lowercase: true,
+      validate: [validator.isEmail, "Please Provide a Valid Email Address"],
     },
 
     phone: {
       type: String,
       required: [true, "Vendor phone is required"],
+      validate: {
+        validator: function (v) {
+          return validator.isMobilePhone(v, "any");
+        },
+        message: "Invalid phone number",
+      },
     },
 
     address: {
