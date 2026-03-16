@@ -12,11 +12,8 @@ exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
 
   const POs = await applyAPIFeatures(query, req.query);
 
-  const totalCount = await PurchaseOrder.countDocuments();
-
   res.status(200).json({
     status: "success",
-    totalCount,
     results: POs.length,
     data: {
       POs,

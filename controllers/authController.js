@@ -34,7 +34,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   const currentUser = await User.findById(decoded.id);
   if (!currentUser) {
     return next(
-      AppError("The User belonging to this token does not longer exist", 401),
+      AppError("The User belonging to this token does no longer exist", 401),
     );
   }
 
@@ -220,7 +220,11 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
   const resetToken = req.params.token;
+  const newPassword = req.body.newpassword;
 
+  if (!newPassword) {
+    return next(AppError("Please provide new password", 400));
+  }
   const hashedtoken = crypto
     .createHash("sha256")
     .update(resetToken)
@@ -235,7 +239,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     return next(AppError("Token is invalid or Expires", 400));
   }
 
-  user.password = req.body.newpassword;
+  user.password = newPassword;
   user.passwordResetToken = undefined;
   user.passwordResetTokenExpires = undefined;
   await user.save();
