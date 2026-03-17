@@ -203,13 +203,56 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
     subject: "Reset Your Password (VALID FOR 10 MIN)",
     message: message,
     html: `
-        <div style="font-family: sans-serif; padding: 20px;">
-          <h2>Password Reset Request</h2>
-          <p>Hello,</p>
-          <p>We received a request to reset your password. Click the button below to proceed:</p>
-          <a href="${resetURL}" style="background:#28a745; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px;">Reset Password</a>
-          <p>If you did not request this, please ignore this email.</p>
-        </div>`,
+<div style="background:#f4f6f8; padding:40px 0; font-family:Arial, Helvetica, sans-serif;">
+  
+  <div style="max-width:500px; margin:auto; background:#ffffff; border-radius:10px; 
+  box-shadow:0 4px 12px rgba(0,0,0,0.1); overflow:hidden;">
+
+    <!-- Header -->
+    <div style="background:#28a745; padding:20px; text-align:center; color:white;">
+      <h2 style="margin:0;">Invoice Creation System</h2>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:30px; text-align:center;">
+      <h3 style="margin-top:0; color:#333;">Password Reset Request</h3>
+
+      <p style="color:#555; font-size:15px;">
+        Hello,
+      </p>
+
+      <p style="color:#555; font-size:15px;">
+        We received a request to reset your password. Click the button below to reset it.
+      </p>
+
+      <!-- Button -->
+      <div style="margin:30px 0;">
+        <a href="${resetURL}" 
+        style="background:#28a745; color:#ffffff; padding:14px 28px; 
+        text-decoration:none; border-radius:6px; font-weight:bold; 
+        display:inline-block; font-size:16px;">
+          Reset Password
+        </a>
+      </div>
+
+      <p style="color:#777; font-size:14px;">
+        This link will expire in <b>10 minutes</b>.
+      </p>
+
+      <p style="color:#777; font-size:14px;">
+        If you didn't request this, you can safely ignore this email.
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#f4f6f8; padding:15px; text-align:center; font-size:12px; color:#888;">
+      © ${new Date().getFullYear()} Invoice Creation System. All rights reserved.
+    </div>
+
+  </div>
+
+</div>
+`,
   });
 
   res.status(200).json({
