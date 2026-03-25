@@ -81,7 +81,7 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
 
   if (files && files.length > 0) {
     attachments = files.map((file) => ({
-      url: file.path,
+      url: `/${file.path.replace(/\\/g, "/")}`,
       filename: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
