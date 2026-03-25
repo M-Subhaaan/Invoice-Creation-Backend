@@ -1,20 +1,21 @@
 const express = require("express");
 const authController = require("../controllers/authController");
 const invoiceController = require("../controllers/invoiceController");
+const upload = require("../utils/multer");
 
 const router = express.Router();
 
 router.use(authController.protect);
 
-router.get(
-  "/",
-  authController.restrictTo("admin"),
-  invoiceController.getAllInvoices,
-);
+router.get("/", invoiceController.getAllInvoices);
 
 router.get("/:id", invoiceController.getSingleInvoice);
 
-router.post("/", invoiceController.createInvoice);
+router.post(
+  "/",
+  upload.array("attachments", 5),
+  invoiceController.createInvoice,
+);
 
 router.patch(
   "/:id",

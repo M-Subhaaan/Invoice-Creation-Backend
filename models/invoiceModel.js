@@ -66,6 +66,16 @@ const invoiceSchema = new mongoose.Schema(
       default: 0,
     },
 
+    billingAddress: {
+      type: String,
+      required: true,
+    },
+
+    shippingAddress: {
+      type: String,
+      required: true,
+    },
+
     totalAmount: {
       type: Number,
       required: true,
@@ -76,6 +86,19 @@ const invoiceSchema = new mongoose.Schema(
       enum: ["unpaid", "paid", "cancelled"],
       default: "unpaid",
     },
+
+    notes: {
+      type: String,
+    },
+
+    attachments: [
+      {
+        url: String,
+        filename: String,
+        mimetype: String,
+        size: Number,
+      },
+    ],
 
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

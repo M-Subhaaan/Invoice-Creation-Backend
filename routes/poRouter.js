@@ -16,6 +16,8 @@ router.patch(
   poController.updatePoStatus,
 );
 
+router.patch("/user-update/:id", poController.updatePO);
+
 router.delete(
   "/:id",
   authController.restrictTo("admin"),

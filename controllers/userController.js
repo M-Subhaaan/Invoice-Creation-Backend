@@ -16,7 +16,10 @@ exports.deleteUser = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllUsers = catchAsync(async (req, res) => {
-  const users = await applyAPIFeatures(User.find(), req.query);
+  const users = await applyAPIFeatures(
+    User.find().select("-password"),
+    req.query,
+  );
   res.status(200).json({
     status: "Success",
     results: users.length,

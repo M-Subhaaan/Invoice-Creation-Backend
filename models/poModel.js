@@ -32,10 +32,31 @@ const purchaseOrderSchema = new mongoose.Schema(
       },
     ],
 
+    billingAddress: {
+      type: String,
+      required: true,
+    },
+
+    shippingAddress: {
+      type: String,
+      required: true,
+    },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
+    },
+    updatedByUserAt: {
+      type: Date,
+    },
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    sendEmailToVendor: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true },

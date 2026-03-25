@@ -8,14 +8,12 @@ const vendorRouter = require("./routes/vendorRouter");
 const productRouter = require("./routes/productRouter");
 const poRouter = require("./routes/poRouter");
 const invoiceRouter = require("./routes/invoiceRouter");
+const statsRouter = require("./routes/statsRouter");
 
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/errorController");
 const app = express();
 app.use(helmet());
-
-app.use(express.json());
-app.use(cookieParser());
 
 app.use(
   cors({
@@ -24,11 +22,15 @@ app.use(
   }),
 );
 
+app.use(express.json());
+app.use(cookieParser());
+
 app.use("/api/v1/users", authRouter);
 app.use("/api/v1/vendors", vendorRouter);
 app.use("/api/v1/products", productRouter);
 app.use("/api/v1/purchase-orders", poRouter);
 app.use("/api/v1/invoices", invoiceRouter);
+app.use("/api/v1/stats", statsRouter);
 
 app.use((req, res, next) => {
   return next(

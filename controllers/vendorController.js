@@ -4,7 +4,12 @@ const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 
 exports.getAllVendors = catchAsync(async (req, res) => {
-  const vendors = await applyAPIFeatures(Vendor.find(), req.query);
+  let filter = {};
+  if (req.user.role === "user") {
+    filter = { createdBy: req.user._id };
+  }
+
+  const vendors = await applyAPIFeatures(Vendor.find(filter), req.query);
 
   res.status(200).json({
     status: "success",
@@ -38,7 +43,10 @@ exports.createVendor = catchAsync(async (req, res, next) => {
     return next(AppError("All fields are required", 400));
   }
 
-  const existingVendor = await Vendor.findOne({ email });
+  const existingVendor = await Vendor.findOne({
+    email,
+    createdBy: req.user._id,
+  });
 
   if (existingVendor) {
     return next(AppError("Vendor already exists with this email", 400));
@@ -78,7 +86,9 @@ exports.updateVendor = catchAsync(async (req, res, next) => {
 
   res.status(200).json({
     status: "success",
-    data: vendor,
+    data: {
+      vendor,
+    },
   });
 });
 

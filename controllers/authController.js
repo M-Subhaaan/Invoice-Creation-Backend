@@ -28,7 +28,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (error) {
-    return next(AppError("Invalid Token", 400));
+    return next(AppError("Invalid Token", 401));
   }
 
   const currentUser = await User.findById(decoded.id);

@@ -9,12 +9,7 @@ router.use(authController.protect);
 router.get("/", vendorController.getAllVendors);
 router.get("/:id", vendorController.getSingleVendor);
 
-router.post(
-  "/",
-  authController.restrictTo("admin"),
-  vendorController.createVendor,
-);
-
+router.post("/", vendorController.createVendor);
 router.patch(
   "/:id",
   authController.restrictTo("admin"),
