@@ -22,7 +22,13 @@ exports.getAllVendors = catchAsync(async (req, res) => {
 
 exports.getSingleVendor = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-  const vendor = await Vendor.findById(id);
+
+  const filter = {
+    _id: id,
+    ...(req.user.role === "user" && { createdBy: req.user._id }),
+  };
+
+  const vendor = await Vendor.findById(filter);
 
   if (!vendor) {
     return next(AppError("Vendor Not Found with the Provided ID", 404));
@@ -71,10 +77,16 @@ exports.createVendor = catchAsync(async (req, res, next) => {
 exports.updateVendor = catchAsync(async (req, res, next) => {
   const id = req.params.id;
   const { email, phone, address, status, companyName } = req.body;
-  const vendor = await Vendor.findById(id);
+
+  const filter = {
+    _id: id,
+    ...(req.user.role === "user" && { createdBy: req.user._id }),
+  };
+
+  const vendor = await Vendor.findById(filter);
 
   if (!vendor) {
-    return next(AppError("Vendor not found with the provided ID", 404));
+    return next(AppError("You Can Only Edit Your Own Vendor", 404));
   }
 
   vendor.email = email || vendor.email;

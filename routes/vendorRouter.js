@@ -10,11 +10,7 @@ router.get("/", vendorController.getAllVendors);
 router.get("/:id", vendorController.getSingleVendor);
 
 router.post("/", vendorController.createVendor);
-router.patch(
-  "/:id",
-  authController.restrictTo("admin"),
-  vendorController.updateVendor,
-);
+router.patch("/:id", vendorController.updateVendor);
 
 router.delete(
   "/:id",

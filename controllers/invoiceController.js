@@ -98,7 +98,22 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     return next(AppError("Purchase Order not found with the provided ID", 404));
   }
 
+  const existingInvoice = await Invoice.findOne({
+    purchaseOrder: purchaseOrderId,
+  });
+
+  if (existingInvoice) {
+    return next(
+      AppError("Invoice already exists for this Purchase Order", 400),
+    );
+  }
+
   // user restriction
+
+  if (req.user.role === "user" && !po.createdBy.equals(req.user._id)) {
+    return next(AppError("You can only invoice your own Purchase Orders", 403));
+  }
+
   if (req.user.role === "user" && po.status !== "approved") {
     return next(
       AppError("Invoice can only be created when PO is approved", 403),

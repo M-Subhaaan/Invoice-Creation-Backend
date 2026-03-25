@@ -20,11 +20,8 @@ exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
     .populate("items.product", "name sku price")
     .populate("createdBy", "name email");
 
-  const totalCount = await PurchaseOrder.countDocuments(filter);
-
   res.status(200).json({
     status: "success",
-    totalCount,
     results: POs.length,
     data: {
       POs,
@@ -169,7 +166,7 @@ exports.createPO = catchAsync(async (req, res, next) => {
       </div>
 
       <!-- Footer -->
-      <p style="margin-top:20px;">Thank you,<br/>Your Company</p>
+      <p style="margin-top:20px;">Thank you,<br/>Invoice Creation System</p>
     </div>
 
     <!-- Bottom -->
@@ -272,7 +269,7 @@ exports.updatePO = catchAsync(async (req, res, next) => {
   try {
     populatedPO = await po.populate([
       { path: "vendor", select: "name email phone" },
-      { path: "items.product", select: "name price" },
+      { path: "items.product", select: "name sku price" },
       { path: "createdBy", select: "name email" },
     ]);
   } catch (err) {

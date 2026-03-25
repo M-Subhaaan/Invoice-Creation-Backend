@@ -6,6 +6,7 @@ const invoiceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseOrder",
       required: true,
+      unique: true,
     },
 
     vendor: {
