@@ -47,13 +47,6 @@ const purchaseOrderSchema = new mongoose.Schema(
       enum: ["pending", "approved", "rejected"],
       default: "pending",
     },
-    updatedByUserAt: {
-      type: Date,
-    },
-    updatedBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-    },
     sendEmailToVendor: {
       type: Boolean,
       default: false,

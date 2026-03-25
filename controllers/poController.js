@@ -259,8 +259,6 @@ exports.updatePO = catchAsync(async (req, res, next) => {
   po.items = items || po.items;
   po.billingAddress = billingAddress || po.billingAddress;
   po.shippingAddress = shippingAddress || po.shippingAddress;
-  po.updatedByUserAt = Date.now();
-  po.updatedBy = req.user._id;
 
   await po.save();
 
