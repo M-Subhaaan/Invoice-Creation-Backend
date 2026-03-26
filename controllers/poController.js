@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const PurchaseOrder = require("../models/poModel");
 const Vendor = require("../models/vendorModel");
 const Product = require("../models/productModel");
@@ -31,18 +32,16 @@ exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
 
 exports.getSinglePO = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-
   const po = await PurchaseOrder.findById(id)
     .populate("vendor", "name email phone")
     .populate("items.product", "name sku price")
     .populate("createdBy", "name email");
 
   if (!po) {
-    return next(AppError("PO Not Found with the ID you Provided", 404));
+    return next(AppError("PO Not Found", 404));
   }
-
   if (req.user.role === "user" && !po.createdBy.equals(req.user._id)) {
-    return next(AppError("You do not have permission to view this PO", 403));
+    return next(AppError("Unauthorized Access", 403));
   }
 
   res.status(200).json({
@@ -64,26 +63,24 @@ exports.createPO = catchAsync(async (req, res, next) => {
     !billingAddress ||
     !shippingAddress
   ) {
-    return next(
-      AppError(
-        "Vendor, items, billingAddress, and shippingAddress are required",
-        400,
-      ),
-    );
+    return next(AppError("Required fields missing", 400));
   }
 
   const vendorExists = await Vendor.findById(vendor);
   if (!vendorExists) {
-    return next(AppError("Vendor not found with the Provided ID", 404));
+    return next(AppError("Vendor not found", 404));
   }
 
-  for (let i = 0; i < items.length; i++) {
-    const productExists = await Product.findById(items[i].product);
-    if (!productExists) {
-      return next(AppError(`Product not found: ${items[i].product}`, 404));
+  for (const item of items) {
+    const product = await Product.findById(item.product);
+    if (!product)
+      return next(AppError(`Product not found: ${item.product}`, 404));
+    if (product.stock < item.quantity) {
+      return next(AppError(`Insufficient stock for "${product.name}".`, 400));
     }
   }
 
+  //Create PO
   const po = await PurchaseOrder.create({
     vendor,
     items,
@@ -93,21 +90,22 @@ exports.createPO = catchAsync(async (req, res, next) => {
     sendEmailToVendor: !!sendEmailToVendor,
   });
 
+  // Update Stocks
   for (const item of items) {
-    const prodId = item.product._id || item.product;
-    await Product.findByIdAndUpdate(prodId, {
+    await Product.findByIdAndUpdate(item.product, {
       $inc: { stock: -item.quantity },
     });
   }
 
+  // Send Email and Respond
   if (sendEmailToVendor) {
-    const totalAmount = items.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0,
-    );
+    const totalAmount = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
 
-    const html = `
-<div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:20px;">
+    try {
+      await sendEmail({
+        email: vendorExists.email,
+        subject: `New Purchase Order #${po._id.toString().slice(-8).toUpperCase()}`,
+        html: `<div style="font-family: Arial, sans-serif; background:#f4f6f8; padding:20px;">
   <div style="max-width:600px; margin:auto; background:#ffffff; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
     
     <!-- Header -->
@@ -183,24 +181,18 @@ exports.createPO = catchAsync(async (req, res, next) => {
     </div>
 
   </div>
-</div>
-`;
-    try {
-      await sendEmail({
-        email: vendorExists.email,
-        subject: `New Purchase Order #${po._id.toString().slice(-8).toUpperCase()}`,
-        html,
+</div>`,
       });
-    } catch (error) {
-      console.error("Email sending failed:", error.message);
+    } catch (err) {
+      console.error("Email failed:", err.message);
     }
   }
 
-  let populatedPO = await po.populate([
-    { path: "vendor", select: "name email phone" },
-    { path: "items.product", select: "name sku price" },
-    { path: "createdBy", select: "name email" },
-  ]);
+  const populatedPO = await PurchaseOrder.findById(po._id)
+    .populate("vendor", "name email phone")
+    .populate("items.product", "name sku price")
+    .populate("createdBy", "name email");
+
   res.status(201).json({
     status: "success",
     data: {
@@ -210,47 +202,36 @@ exports.createPO = catchAsync(async (req, res, next) => {
 });
 
 exports.updatePoStatus = catchAsync(async (req, res, next) => {
-  const id = req.params.id;
-  const status = req.body.status;
+  const { id } = req.params;
+  const { status } = req.body;
 
   if (!["approved", "rejected"].includes(status)) {
-    return next(AppError("Status must be 'approved' or 'rejected'", 400));
+    return next(AppError("Invalid status", 400));
   }
 
-  const po = await PurchaseOrder.findById(id).populate([
-    { path: "vendor", select: "name email phone" },
-    { path: "items.product", select: "name sku price" },
-    { path: "createdBy", select: "name email" },
-  ]);
+  const po = await PurchaseOrder.findById(id);
   if (!po) {
-    return next(AppError("Purchase Order not found with the ID", 404));
+    return next(AppError("PO not found", 404));
   }
 
   if (po.status !== "rejected" && status === "rejected") {
-    // Restore stock if PO is rejected
     for (const item of po.items) {
-      const prodId = item.product._id || item.product;
-      await Product.findByIdAndUpdate(prodId, {
+      await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: item.quantity },
       });
     }
   } else if (po.status === "rejected" && status === "approved") {
     // Re-verify stock before approving a rejected PO
     for (const item of po.items) {
-      const prodId = item.product._id || item.product;
-      const p = await Product.findById(prodId);
-      if (p && p.stock < item.quantity) {
+      const prod = await Product.findById(item.product);
+      if (!prod || prod.stock < item.quantity) {
         return next(
-          AppError(
-            `Cannot approve PO. Not enough stock for ${p.name || "product"}.`,
-            400,
-          ),
+          AppError(`Insufficient stock for "${prod?.name || "Product"}".`, 400),
         );
       }
     }
     for (const item of po.items) {
-      const prodId = item.product._id || item.product;
-      await Product.findByIdAndUpdate(prodId, {
+      await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity },
       });
     }
@@ -259,135 +240,72 @@ exports.updatePoStatus = catchAsync(async (req, res, next) => {
   po.status = status;
   await po.save();
 
-  res.status(200).json({
-    status: "success",
-    data: {
-      po,
-    },
-  });
+  const populatedPO = await PurchaseOrder.findById(id).populate(
+    "vendor items.product createdBy",
+  );
+  res.status(200).json({ status: "success", data: { po: populatedPO } });
 });
 
 exports.updatePO = catchAsync(async (req, res, next) => {
   const { items, billingAddress, shippingAddress } = req.body;
   const po = await PurchaseOrder.findById(req.params.id);
 
-  if (!po) {
-    return next(AppError("PO Not Found with the ID", 404));
-  }
+  if (!po) return next(AppError("PO not found", 404));
+  if (!po.createdBy.equals(req.user._id))
+    return next(AppError("Unauthorized", 403));
+  if (po.status !== "pending")
+    return next(AppError("Can only edit pending POs", 400));
 
-  // 1. Permission check
-  if (!po.createdBy.equals(req.user._id)) {
-    return next(AppError("You can only edit your own POs", 403));
-  }
-
-  // 2. Status check
-  if (po.status !== "pending") {
-    return next(AppError("Only pending POs can be edited", 400));
-  }
-
-  // 3. Time check (24h)
-  const oneDayInMs = 24 * 60 * 60 * 1000;
-  const timeElapsed = Date.now() - new Date(po.createdAt).getTime();
-
-  if (timeElapsed > oneDayInMs) {
-    return next(AppError("PO editing window (24h) has expired", 400));
-  }
-
-  // 4. Update
   if (items) {
-    const oldItemsMap = {};
-    for (const oldItem of po.items) {
-      const prodIdStr = (oldItem.product._id || oldItem.product).toString();
-      oldItemsMap[prodIdStr] = (oldItemsMap[prodIdStr] || 0) + oldItem.quantity;
-    }
-
-    for (const item of items) {
-      const prodIdStr = (item.product._id || item.product).toString();
-      const productData = await Product.findById(prodIdStr);
-      if (!productData) {
-        return next(AppError(`Product with ID ${item.product} not found`, 404));
-      }
-
-      const oldQty = oldItemsMap[prodIdStr] || 0;
-      const effectiveStock = productData.stock + oldQty;
-
-      if (effectiveStock <= 0) {
-        return next(
-          AppError(`Product "${productData.name}" is out of stock`, 400),
-        );
-      }
-      if (item.quantity > effectiveStock) {
-        return next(
-          AppError(
-            `Cannot order ${item.quantity} of "${productData.name}". Only ${effectiveStock} in stock.`,
-            400,
-          ),
-        );
-      }
-    }
-
     // Restore old stock
-    for (const oldItem of po.items) {
-      const prodId = oldItem.product._id || oldItem.product;
-      await Product.findByIdAndUpdate(prodId, {
-        $inc: { stock: oldItem.quantity },
+    for (const item of po.items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: item.quantity },
       });
     }
-    // Deduct new stock
-    for (const newItem of items) {
-      const prodId = newItem.product._id || newItem.product;
-      await Product.findByIdAndUpdate(prodId, {
-        $inc: { stock: -newItem.quantity },
+    // Validate and Deduct new stock
+    for (const item of items) {
+      const prod = await Product.findById(item.product);
+      if (!prod || prod.stock < item.quantity) {
+        return next(
+          AppError(`Insufficient stock for "${prod?.name || "Product"}"`, 400),
+        );
+      }
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity },
       });
     }
+    po.items = items;
   }
-  po.items = items || po.items;
+
   po.billingAddress = billingAddress || po.billingAddress;
   po.shippingAddress = shippingAddress || po.shippingAddress;
-
   await po.save();
 
-  // 5. Populate
-  let populatedPO;
-  try {
-    populatedPO = await po.populate([
-      { path: "vendor", select: "name email phone" },
-      { path: "items.product", select: "name sku price" },
-      { path: "createdBy", select: "name email" },
-    ]);
-  } catch (err) {
-    console.error("Population error in updatePO (user):", err);
-    populatedPO = po;
-  }
-
-  res.status(200).json({
-    status: "success",
-    data: {
-      po: populatedPO,
-    },
-  });
+  const populatedPO = await PurchaseOrder.findById(po._id).populate(
+    "vendor items.product createdBy",
+  );
+  res.status(200).json({ status: "success", data: { po: populatedPO } });
 });
 
 exports.deletePo = catchAsync(async (req, res, next) => {
-  const id = req.params.id;
+  const po = await PurchaseOrder.findById(req.params.id);
+  if (!po) return next(AppError("PO not found", 404));
 
-  const po = await PurchaseOrder.findByIdAndDelete(id);
-
-  if (!po) {
-    return next(AppError("PO Not Found with the ID", 404));
+  if (req.user.role !== "admin" && !po.createdBy.equals(req.user._id)) {
+    return next(AppError("Unauthorized delete attempt", 403));
   }
+
   if (po.status !== "rejected") {
-    // Restore stock if the PO wasn't already rejected
     for (const item of po.items) {
-      const prodId = item.product._id || item.product;
-      await Product.findByIdAndUpdate(prodId, {
+      await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: item.quantity },
       });
     }
   }
 
-  res.status(200).json({
-    status: "success",
-    message: "PO Deleted Successfuly",
-  });
+  await PurchaseOrder.findByIdAndDelete(req.params.id);
+  res
+    .status(200)
+    .json({ status: "success", message: "PO Deleted Successfuly" });
 });
