@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const PurchaseOrder = require("../models/poModel");
 const Vendor = require("../models/vendorModel");
 const Product = require("../models/productModel");
@@ -97,6 +96,11 @@ exports.createPO = catchAsync(async (req, res, next) => {
     });
   }
 
+  const populatedPO = await PurchaseOrder.findById(po._id)
+    .populate("vendor", "name email phone")
+    .populate("items.product", "name sku price")
+    .populate("createdBy", "name email");
+
   // Send Email and Respond
   if (sendEmailToVendor) {
     const totalAmount = items.reduce((acc, i) => acc + i.price * i.quantity, 0);
@@ -144,11 +148,11 @@ exports.createPO = catchAsync(async (req, res, next) => {
           </tr>
         </thead>
         <tbody>
-          ${items
+          ${populatedPO.items
             .map(
               (item) => `
             <tr>
-              <td style="padding:10px; border:1px solid #ddd;">${item.product}</td>
+              <td style="padding:10px; border:1px solid #ddd;">${item.product.name}</td>
               <td style="padding:10px; border:1px solid #ddd; text-align:center;">${item.quantity}</td>
               <td style="padding:10px; border:1px solid #ddd; text-align:right;">$${item.price}</td>
               <td style="padding:10px; border:1px solid #ddd; text-align:right;">$${item.price * item.quantity}</td>
@@ -187,11 +191,6 @@ exports.createPO = catchAsync(async (req, res, next) => {
       console.error("Email failed:", err.message);
     }
   }
-
-  const populatedPO = await PurchaseOrder.findById(po._id)
-    .populate("vendor", "name email phone")
-    .populate("items.product", "name sku price")
-    .populate("createdBy", "name email");
 
   res.status(201).json({
     status: "success",
