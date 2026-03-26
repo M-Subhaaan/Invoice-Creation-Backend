@@ -255,6 +255,14 @@ exports.updatePO = catchAsync(async (req, res, next) => {
   if (po.status !== "pending")
     return next(AppError("Can only edit pending POs", 400));
 
+  const now = new Date();
+  const createdAt = new Date(po.createdAt);
+  const hoursDiff = (now - createdAt) / (1000 * 60 * 60);
+  if (hoursDiff > 24)
+    return next(
+      AppError("PO can only be edited within 24 hours of creation", 400),
+    );
+
   if (items) {
     // Restore old stock
     for (const item of po.items) {

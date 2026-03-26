@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(authController.protect);
 
 router.get("/", productController.getProducts);
+router.get("/tracking", productController.getProductTracking);
 router.get("/:id", productController.getSingleProduct);
 
 router.post(

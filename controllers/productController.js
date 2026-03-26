@@ -1,4 +1,5 @@
 const Product = require("../models/productModel");
+const PurchaseOrder = require("../models/poModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const { applyAPIFeatures } = require("../utils/applyApiFeatures");
@@ -99,5 +100,33 @@ exports.deleteProduct = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     message: "Product Deleted Successfuly",
+  });
+});
+
+exports.getProductTracking = catchAsync(async (req, res, next) => {
+  const productId = req.body.productId;
+
+  const pos = await PurchaseOrder.find({ "items.product": productId })
+    .select("poNumber items createdAt status")
+    .populate("createdBy vendor");
+
+  // Map POs to show only this product's quantity
+  const tracking = pos.map((po) => {
+    const item = po.items.find((i) => i.product.toString() === productId);
+    return {
+      poId: po._id,
+      poNumber: po.poNumber,
+      date: po.createdAt,
+      status: po.status,
+      quantityUsed: item.quantity,
+      vendor: po.vendor,
+      createdBy: po.createdBy,
+    };
+  });
+
+  res.status(200).json({
+    status: "success",
+    results: tracking.length,
+    data: { tracking },
   });
 });
