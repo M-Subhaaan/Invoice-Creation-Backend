@@ -24,6 +24,12 @@ const productSchema = new mongoose.Schema(
       required: [true, "Product price is required"],
     },
 
+    stock: {
+      type: Number,
+      min: [0, "Stock cannot be negative"],
+      default: 0,
+    },
+
     unit: {
       type: String,
       default: "pcs",

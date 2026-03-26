@@ -51,6 +51,11 @@ const purchaseOrderSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    invoiceCreated: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );

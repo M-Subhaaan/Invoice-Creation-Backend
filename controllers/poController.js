@@ -92,6 +92,14 @@ exports.createPO = catchAsync(async (req, res, next) => {
     createdBy: req.user._id,
     sendEmailToVendor: !!sendEmailToVendor,
   });
+
+  for (const item of items) {
+    const prodId = item.product._id || item.product;
+    await Product.findByIdAndUpdate(prodId, {
+      $inc: { stock: -item.quantity },
+    });
+  }
+
   if (sendEmailToVendor) {
     const totalAmount = items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -218,6 +226,36 @@ exports.updatePoStatus = catchAsync(async (req, res, next) => {
     return next(AppError("Purchase Order not found with the ID", 404));
   }
 
+  if (po.status !== "rejected" && status === "rejected") {
+    // Restore stock if PO is rejected
+    for (const item of po.items) {
+      const prodId = item.product._id || item.product;
+      await Product.findByIdAndUpdate(prodId, {
+        $inc: { stock: item.quantity },
+      });
+    }
+  } else if (po.status === "rejected" && status === "approved") {
+    // Re-verify stock before approving a rejected PO
+    for (const item of po.items) {
+      const prodId = item.product._id || item.product;
+      const p = await Product.findById(prodId);
+      if (p && p.stock < item.quantity) {
+        return next(
+          AppError(
+            `Cannot approve PO. Not enough stock for ${p.name || "product"}.`,
+            400,
+          ),
+        );
+      }
+    }
+    for (const item of po.items) {
+      const prodId = item.product._id || item.product;
+      await Product.findByIdAndUpdate(prodId, {
+        $inc: { stock: -item.quantity },
+      });
+    }
+  }
+
   po.status = status;
   await po.save();
 
@@ -256,6 +294,53 @@ exports.updatePO = catchAsync(async (req, res, next) => {
   }
 
   // 4. Update
+  if (items) {
+    const oldItemsMap = {};
+    for (const oldItem of po.items) {
+      const prodIdStr = (oldItem.product._id || oldItem.product).toString();
+      oldItemsMap[prodIdStr] = (oldItemsMap[prodIdStr] || 0) + oldItem.quantity;
+    }
+
+    for (const item of items) {
+      const prodIdStr = (item.product._id || item.product).toString();
+      const productData = await Product.findById(prodIdStr);
+      if (!productData) {
+        return next(AppError(`Product with ID ${item.product} not found`, 404));
+      }
+
+      const oldQty = oldItemsMap[prodIdStr] || 0;
+      const effectiveStock = productData.stock + oldQty;
+
+      if (effectiveStock <= 0) {
+        return next(
+          AppError(`Product "${productData.name}" is out of stock`, 400),
+        );
+      }
+      if (item.quantity > effectiveStock) {
+        return next(
+          AppError(
+            `Cannot order ${item.quantity} of "${productData.name}". Only ${effectiveStock} in stock.`,
+            400,
+          ),
+        );
+      }
+    }
+
+    // Restore old stock
+    for (const oldItem of po.items) {
+      const prodId = oldItem.product._id || oldItem.product;
+      await Product.findByIdAndUpdate(prodId, {
+        $inc: { stock: oldItem.quantity },
+      });
+    }
+    // Deduct new stock
+    for (const newItem of items) {
+      const prodId = newItem.product._id || newItem.product;
+      await Product.findByIdAndUpdate(prodId, {
+        $inc: { stock: -newItem.quantity },
+      });
+    }
+  }
   po.items = items || po.items;
   po.billingAddress = billingAddress || po.billingAddress;
   po.shippingAddress = shippingAddress || po.shippingAddress;
@@ -290,6 +375,15 @@ exports.deletePo = catchAsync(async (req, res, next) => {
 
   if (!po) {
     return next(AppError("PO Not Found with the ID", 404));
+  }
+  if (po.status !== "rejected") {
+    // Restore stock if the PO wasn't already rejected
+    for (const item of po.items) {
+      const prodId = item.product._id || item.product;
+      await Product.findByIdAndUpdate(prodId, {
+        $inc: { stock: item.quantity },
+      });
+    }
   }
 
   res.status(200).json({

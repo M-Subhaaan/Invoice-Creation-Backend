@@ -33,7 +33,7 @@ exports.getSingleProduct = catchAsync(async (req, res, next) => {
 });
 
 exports.createProduct = catchAsync(async (req, res, next) => {
-  const { name, description, price, unit } = req.body;
+  const { name, description, price, unit, stock } = req.body;
 
   if (!name || !price) {
     return next(AppError("Product name and price are required", 400));
@@ -50,6 +50,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
     description,
     price,
     unit,
+    stock: stock !== undefined ? Number(stock) : 0,
     createdBy: req.user._id,
   });
 
@@ -63,7 +64,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
 
 exports.updateProduct = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-  const { name, description, price, unit } = req.body;
+  const { name, description, price, unit, stock } = req.body;
 
   const product = await Product.findById(id);
 
@@ -75,6 +76,7 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
   product.description = description || product.description;
   product.price = price || product.price;
   product.unit = unit || product.unit;
+  if (stock !== undefined) product.stock = Number(stock);
   await product.save();
 
   res.status(200).json({
