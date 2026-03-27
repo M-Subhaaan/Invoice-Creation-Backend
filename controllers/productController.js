@@ -110,6 +110,9 @@ exports.getProductTracking = catchAsync(async (req, res, next) => {
     .select("poNumber items createdAt status")
     .populate("createdBy vendor");
 
+  if (!pos) {
+    return next(AppError("No Purchase Orders found for this Product", 404));
+  }
   // Map POs to show only this product's quantity
   const tracking = pos.map((po) => {
     const item = po.items.find((i) => i.product.toString() === productId);
@@ -127,6 +130,8 @@ exports.getProductTracking = catchAsync(async (req, res, next) => {
   res.status(200).json({
     status: "success",
     results: tracking.length,
-    data: { tracking },
+    data: {
+      tracking,
+    },
   });
 });
