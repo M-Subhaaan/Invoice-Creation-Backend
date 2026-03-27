@@ -52,6 +52,7 @@ exports.createProduct = catchAsync(async (req, res, next) => {
     price,
     unit,
     stock: stock !== undefined ? Number(stock) : 0,
+    totalStock: req.body.stock,
     createdBy: req.user._id,
   });
 
@@ -77,7 +78,10 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
   product.description = description || product.description;
   product.price = price || product.price;
   product.unit = unit || product.unit;
-  if (stock !== undefined) product.stock = Number(stock);
+  if (stock !== undefined) {
+    product.stock = Number(stock);
+    product.totalStock = Number(stock);
+  }
   await product.save();
 
   res.status(200).json({
@@ -90,6 +94,16 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
 
 exports.deleteProduct = catchAsync(async (req, res, next) => {
   const id = req.params.id;
+
+  const poUsingProduct = await PurchaseOrder.findOne({ "items.product": id });
+  if (poUsingProduct) {
+    return next(
+      AppError(
+        "Cannot delete product because it is actively used in one or more Purchase Orders.",
+        400,
+      ),
+    );
+  }
 
   const product = await Product.findByIdAndDelete(id);
 

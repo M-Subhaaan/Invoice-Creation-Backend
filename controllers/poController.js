@@ -91,11 +91,22 @@ exports.createPO = catchAsync(async (req, res, next) => {
 
   // Update Stocks
   for (const item of items) {
-    await Product.findByIdAndUpdate(item.product, {
-      $inc: { stock: -item.quantity },
-    });
+    const updatedProduct = await Product.findOneAndUpdate(
+      { _id: item.product, stock: { $gte: item.quantity } },
+      { $inc: { stock: -item.quantity } },
+      { new: true },
+    );
+    if (!updatedProduct) {
+      // Revert PO if stock is insufficient concurrently
+      await PurchaseOrder.findByIdAndDelete(po._id);
+      return next(
+        AppError(
+          `Insufficient stock for product ID: ${item.product} during creation. Order reverted.`,
+          400,
+        ),
+      );
+    }
   }
-
   const populatedPO = await PurchaseOrder.findById(po._id)
     .populate("vendor", "name email phone")
     .populate("items.product", "name sku price")
@@ -264,20 +275,31 @@ exports.updatePO = catchAsync(async (req, res, next) => {
     );
 
   if (items) {
-    // Restore old stock
+    for (const item of items) {
+      const prod = await Product.findById(item.product);
+
+      // Calculate how much stock of this item is currently locked in the old PO
+      const oldItem = po.items.find(
+        (i) => i.product.toString() === item.product.toString(),
+      );
+      const recoverableStock = oldItem ? oldItem.quantity : 0;
+      if (!prod || prod.stock + recoverableStock < item.quantity) {
+        return next(
+          AppError(
+            `Insufficient stock for "${prod?.name || "Product"}" or product does not exist. Update aborted.`,
+            400,
+          ),
+        );
+      }
+    }
+
     for (const item of po.items) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: item.quantity },
       });
     }
-    // Validate and Deduct new stock
+
     for (const item of items) {
-      const prod = await Product.findById(item.product);
-      if (!prod || prod.stock < item.quantity) {
-        return next(
-          AppError(`Insufficient stock for "${prod?.name || "Product"}"`, 400),
-        );
-      }
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: -item.quantity },
       });

@@ -17,11 +17,13 @@ const productSchema = new mongoose.Schema(
 
     description: {
       type: String,
+      trim: true,
     },
 
     price: {
       type: Number,
       required: [true, "Product price is required"],
+      min: 0,
     },
 
     stock: {
@@ -33,6 +35,13 @@ const productSchema = new mongoose.Schema(
     unit: {
       type: String,
       default: "pcs",
+      trim: true,
+    },
+
+    totalStock: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
 
     createdBy: {
@@ -43,8 +52,14 @@ const productSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
+
+productSchema.virtual("ordered").get(function () {
+  return this.totalStock - this.stock;
+});
 
 productSchema.pre("save", async function () {
   // Only generate SKU if it doesn't already exist or if the name changed

@@ -23,7 +23,7 @@ exports.getStats = catchAsync(async (req, res) => {
     poValueData,
     invoicesByStatus,
   ] = await Promise.all([
-    User.countDocuments(userFilter),
+    User.countDocuments(),
     PurchaseOrder.countDocuments(userFilter),
     Invoice.countDocuments(userFilter),
     Vendor.countDocuments(isUser ? { createdBy: userId } : {}), // Vendors are always scoped if we want user-specific

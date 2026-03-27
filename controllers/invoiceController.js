@@ -1,3 +1,5 @@
+const fs = require("fs");
+const path = require("path");
 const mongoose = require("mongoose");
 const Invoice = require("../models/invoiceModel");
 const PurchaseOrder = require("../models/poModel");
@@ -216,11 +218,15 @@ exports.updateInvoiceStatus = catchAsync(async (req, res, next) => {
 
   invoice.status = status;
   await invoice.save();
+  const populatedInvoice = await Invoice.findById(invoice._id)
+    .populate("purchaseOrder")
+    .populate("vendor")
+    .populate("items.product");
 
   res.status(200).json({
     status: "success",
     data: {
-      invoice,
+      invoice: populatedInvoice,
     },
   });
 });
@@ -228,12 +234,22 @@ exports.updateInvoiceStatus = catchAsync(async (req, res, next) => {
 exports.deleteInvoice = catchAsync(async (req, res, next) => {
   const id = req.params.id;
 
-  const invoice = await Invoice.findByIdAndDelete(id);
+  const invoice = await Invoice.findById(id);
 
   if (!invoice) {
     return next(AppError("Invoice Not Found with the ID", 404));
   }
 
+  if (invoice.attachments && invoice.attachments.length > 0) {
+    invoice.attachments.forEach((file) => {
+      const filePath = path.join(__dirname, "..", file.url);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    });
+  }
+
+  await Invoice.findByIdAndDelete(id);
   res.status(200).json({
     status: "success",
     message: "Invoice Deleted Successfuly",

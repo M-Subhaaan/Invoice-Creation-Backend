@@ -197,12 +197,12 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
   const resetURL = `${process.env.FRONTEND_URL}/resetpassword/${resetToken}`;
 
   const message = `Forgot Your Password?? Submit a request to reset your password to: ${resetURL}\n If you didn't forgot your password.Ignore this mail`;
-
-  await sendEmail({
-    email: user.email,
-    subject: "Reset Your Password (VALID FOR 10 MIN)",
-    message: message,
-    html: `
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Reset Your Password (VALID FOR 10 MIN)",
+      message: message,
+      html: `
 <div style="background:#f4f6f8; padding:40px 0; font-family:Arial, Helvetica, sans-serif;">
   
   <div style="max-width:500px; margin:auto; background:#ffffff; border-radius:10px; 
@@ -253,7 +253,15 @@ exports.forgetPassword = catchAsync(async (req, res, next) => {
 
 </div>
 `,
-  });
+    });
+  } catch (error) {
+    user.passwordResetToken = undefined;
+    user.passwordResetTokenExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return next(
+      AppError("There was an error sending the email. Try again later!", 500),
+    );
+  }
 
   res.status(200).json({
     status: "Success",

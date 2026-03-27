@@ -1,4 +1,5 @@
 const Vendor = require("../models/vendorModel");
+const PurchaseOrder = require("../models/poModel");
 const { applyAPIFeatures } = require("../utils/applyApiFeatures");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
@@ -28,7 +29,7 @@ exports.getSingleVendor = catchAsync(async (req, res, next) => {
     ...(req.user.role === "user" && { createdBy: req.user._id }),
   };
 
-  const vendor = await Vendor.findById(filter);
+  const vendor = await Vendor.findOne(filter);
 
   if (!vendor) {
     return next(AppError("Vendor Not Found with the Provided ID", 404));
@@ -83,7 +84,7 @@ exports.updateVendor = catchAsync(async (req, res, next) => {
     ...(req.user.role === "user" && { createdBy: req.user._id }),
   };
 
-  const vendor = await Vendor.findById(filter);
+  const vendor = await Vendor.findOne(filter);
 
   if (!vendor) {
     return next(AppError("You Can Only Edit Your Own Vendor", 404));
@@ -106,6 +107,16 @@ exports.updateVendor = catchAsync(async (req, res, next) => {
 
 exports.deleteVendor = catchAsync(async (req, res, next) => {
   const id = req.params.id;
+
+  const hasPOs = await PurchaseOrder.findOne({ vendor: id });
+  if (hasPOs) {
+    return next(
+      AppError(
+        "Cannot delete vendor because they have existing Purchase Orders. Please delete the associated orders first.",
+        400,
+      ),
+    );
+  }
 
   const vendor = await Vendor.findByIdAndDelete(id);
 
