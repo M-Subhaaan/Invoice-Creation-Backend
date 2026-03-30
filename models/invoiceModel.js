@@ -2,11 +2,15 @@ const mongoose = require("mongoose");
 
 const invoiceSchema = new mongoose.Schema(
   {
+    invoiceNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     purchaseOrder: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseOrder",
       required: true,
-      unique: true,
     },
 
     vendor: {

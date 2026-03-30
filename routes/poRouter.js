@@ -7,6 +7,7 @@ const router = express.Router();
 router.use(authController.protect);
 
 router.get("/", poController.getAllPurchaseOrders);
+router.get("/opened/pos", poController.getOpenedPOs);
 router.get("/:id", poController.getSinglePO);
 
 router.post("/", poController.createPO);

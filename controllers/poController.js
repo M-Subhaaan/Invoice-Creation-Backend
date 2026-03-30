@@ -4,6 +4,7 @@ const Product = require("../models/productModel");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 const { applyAPIFeatures } = require("../utils/applyApiFeatures");
+const { getNextPONumber } = require("../utils/getCounterNumber");
 const sendEmail = require("../utils/email");
 
 exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
@@ -51,10 +52,37 @@ exports.getSinglePO = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getOpenedPOs = catchAsync(async (req, res) => {
+  let filter = {
+    invoiceCreatedStatus: "open",
+  };
+
+  if (req.user.role === "user") {
+    filter.createdBy = req.user._id;
+  }
+
+  let query = PurchaseOrder.find(filter);
+  query = applyAPIFeatures(query, req.query);
+
+  const POs = await query
+    .populate("vendor", "name email")
+    .populate("items.product", "name sku price stock totalStock")
+    .populate("createdBy", "name email");
+
+  res.status(200).json({
+    status: "success",
+    results: POs.length,
+    data: {
+      POs,
+    },
+  });
+});
+
 exports.createPO = catchAsync(async (req, res, next) => {
   const { vendor, items, billingAddress, shippingAddress, sendEmailToVendor } =
     req.body;
 
+  const poNumber = await getNextPONumber();
   if (
     !vendor ||
     !items ||
@@ -81,6 +109,7 @@ exports.createPO = catchAsync(async (req, res, next) => {
 
   //Create PO
   const po = await PurchaseOrder.create({
+    poNumber,
     vendor,
     items,
     billingAddress,

@@ -5,6 +5,7 @@ const Invoice = require("../models/invoiceModel");
 const PurchaseOrder = require("../models/poModel");
 
 const { applyAPIFeatures } = require("../utils/applyApiFeatures");
+const { getNextInvoiceNumber } = require("../utils/getCounterNumber");
 const catchAsync = require("../utils/catchAsync");
 const AppError = require("../utils/appError");
 
@@ -69,7 +70,7 @@ exports.getSingleInvoice = catchAsync(async (req, res, next) => {
 
 exports.createInvoice = catchAsync(async (req, res, next) => {
   const {
-    purchaseOrderId,
+    poNumber,
     taxType,
     taxValue,
     discountType,
@@ -77,6 +78,8 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     notes,
     items: reqItems,
   } = req.body;
+
+  const invoiceNumber = await getNextInvoiceNumber();
 
   const files = req.files;
 
@@ -91,26 +94,17 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     }));
   }
 
-  if (!purchaseOrderId || !mongoose.Types.ObjectId.isValid(purchaseOrderId)) {
-    return next(AppError("Please provide a valid Purchase Order ID", 400));
-  }
-  const po =
-    await PurchaseOrder.findById(purchaseOrderId).populate("items.product");
+  const po = await PurchaseOrder.findOne({ poNumber }).populate(
+    "items.product",
+  );
 
   if (!po) {
     return next(AppError("Purchase Order not found with the provided ID", 404));
   }
 
-  const existingInvoice = await Invoice.findOne({
-    purchaseOrder: purchaseOrderId,
-  });
-
-  if (existingInvoice) {
-    return next(
-      AppError("Invoice already exists for this Purchase Order", 400),
-    );
+  if (po.invoiceCreatedStatus === "closed") {
+    return next(AppError("Invoice has already been created for this PO", 400));
   }
-
   // user restriction
 
   if (req.user.role === "user" && !po.createdBy.equals(req.user._id)) {
@@ -133,8 +127,6 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
       return next(AppError("Invalid format for items", 400));
     }
   }
-
-  console.log("PO Items:", po.items);
   // calculate items
   let items = [];
   let subtotal = 0;
@@ -143,14 +135,18 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     return next(AppError("Purchase Order has no items", 400));
   }
 
-  po.items.forEach((item) => {
+  for (const item of po.items) {
     if (!item.product) return;
 
-    const providedItem = parsedReqItems.find(
-      (ri) =>
-        ri.product === item.product._id.toString() ||
-        ri.product === item.product.toString(),
-    );
+    const providedItem = parsedReqItems?.length
+      ? parsedReqItems.find(
+          (ri) =>
+            ri.product === item.product._id.toString() ||
+            ri.product === item.product.toString(),
+        )
+      : null;
+
+    const productName = item.product.name;
 
     const quantity =
       providedItem && providedItem.quantity !== undefined
@@ -159,9 +155,9 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     const price =
       providedItem && providedItem.price !== undefined
         ? Number(providedItem.price)
-        : item.price || item.product.price || 0;
+        : item.price || item.product.price;
 
-    if (!quantity || quantity <= 0) return;
+    if (!quantity || quantity <= 0) continue;
 
     const total = Number((quantity * price).toFixed(2));
 
@@ -171,9 +167,30 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
       price,
       total,
     });
+    const invoicedQty = item.invoicedQuantity || 0;
+    const remainingQty = item.quantity - invoicedQty;
+
+    if (quantity > remainingQty) {
+      return next(
+        AppError(
+          `Insufficient quantity for "${productName}". Requested: ${quantity}, Available: ${remainingQty}`,
+          400,
+        ),
+      );
+    }
 
     subtotal += total;
-  });
+
+    item.invoicedQuantity = (item.invoicedQuantity || 0) + quantity;
+  }
+
+  const allCompleted = po.items.every(
+    (item) => item.invoicedQuantity >= item.quantity,
+  );
+
+  if (allCompleted) {
+    po.invoiceCreatedStatus = "closed";
+  }
 
   if (items.length === 0) {
     return next(AppError("No valid items found in Purchase Order", 400));
@@ -204,6 +221,7 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
 
   // create invoice
   const invoice = await Invoice.create({
+    invoiceNumber,
     purchaseOrder: po._id,
     vendor: po.vendor,
     items,
@@ -220,6 +238,7 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     createdBy: req.user._id,
   });
 
+  await po.save();
   res.status(201).json({
     status: "success",
     data: {

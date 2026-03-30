@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const purchaseOrderSchema = new mongoose.Schema(
   {
+    poNumber: {
+      type: String,
+      required: true,
+      unique: true,
+    },
     vendor: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Vendor",
@@ -29,6 +34,10 @@ const purchaseOrderSchema = new mongoose.Schema(
           type: Number,
           required: true,
         },
+        invoicedQuantity: {
+          type: Number,
+          default: 0,
+        },
       },
     ],
 
@@ -52,9 +61,10 @@ const purchaseOrderSchema = new mongoose.Schema(
       default: false,
     },
 
-    invoiceCreated: {
-      type: Boolean,
-      default: false,
+    invoiceCreatedStatus: {
+      type: String,
+      enum: ["open", "closed"],
+      default: "open",
     },
   },
   { timestamps: true },
