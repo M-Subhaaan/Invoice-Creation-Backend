@@ -75,6 +75,7 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     discountType,
     discountValue,
     notes,
+    items: reqItems,
   } = req.body;
 
   const files = req.files;
@@ -122,6 +123,18 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
     );
   }
 
+  // parse user requested items if provided to allow editing quantity and price
+  let parsedReqItems = [];
+  if (reqItems) {
+    try {
+      parsedReqItems =
+        typeof reqItems === "string" ? JSON.parse(reqItems) : reqItems;
+    } catch (err) {
+      return next(AppError("Invalid format for items", 400));
+    }
+  }
+
+  console.log("PO Items:", po.items);
   // calculate items
   let items = [];
   let subtotal = 0;
@@ -133,14 +146,29 @@ exports.createInvoice = catchAsync(async (req, res, next) => {
   po.items.forEach((item) => {
     if (!item.product) return;
 
-    const total = Number(
-      (item.quantity * (item.price || item.product.price || 0)).toFixed(2),
+    const providedItem = parsedReqItems.find(
+      (ri) =>
+        ri.product === item.product._id.toString() ||
+        ri.product === item.product.toString(),
     );
+
+    const quantity =
+      providedItem && providedItem.quantity !== undefined
+        ? Number(providedItem.quantity)
+        : item.quantity;
+    const price =
+      providedItem && providedItem.price !== undefined
+        ? Number(providedItem.price)
+        : item.price || item.product.price || 0;
+
+    if (!quantity || quantity <= 0) return;
+
+    const total = Number((quantity * price).toFixed(2));
 
     items.push({
       product: item.product._id,
-      quantity: item.quantity,
-      price: item.price || item.product.price,
+      quantity,
+      price,
       total,
     });
 

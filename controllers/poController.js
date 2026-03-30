@@ -17,7 +17,7 @@ exports.getAllPurchaseOrders = catchAsync(async (req, res) => {
 
   const POs = await query
     .populate("vendor", "name email")
-    .populate("items.product", "name sku price")
+    .populate("items.product", "name sku price stock totalStock")
     .populate("createdBy", "name email");
 
   res.status(200).json({
@@ -33,7 +33,7 @@ exports.getSinglePO = catchAsync(async (req, res, next) => {
   const id = req.params.id;
   const po = await PurchaseOrder.findById(id)
     .populate("vendor", "name email phone")
-    .populate("items.product", "name sku price")
+    .populate("items.product", "name sku price stock totalStock")
     .populate("createdBy", "name email");
 
   if (!po) {
@@ -109,7 +109,7 @@ exports.createPO = catchAsync(async (req, res, next) => {
   }
   const populatedPO = await PurchaseOrder.findById(po._id)
     .populate("vendor", "name email phone")
-    .populate("items.product", "name sku price")
+    .populate("items.product", "name sku price stock totalStock")
     .populate("createdBy", "name email");
 
   // Send Email and Respond
