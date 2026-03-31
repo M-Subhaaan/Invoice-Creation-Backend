@@ -124,6 +124,15 @@ exports.createPO = catchAsync(async (req, res, next) => {
     return next(AppError("Vendor not found", 404));
   }
 
+  const productIds = items.map((item) => item.product.toString());
+  const hasDuplicates = new Set(productIds).size !== productIds.length;
+
+  if (hasDuplicates) {
+    return next(
+      AppError("Duplicate products are not allowed in Purchase Order", 400),
+    );
+  }
+
   for (const item of items) {
     const product = await Product.findById(item.product);
     if (!product)
