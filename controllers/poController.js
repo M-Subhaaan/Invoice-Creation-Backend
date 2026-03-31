@@ -52,6 +52,32 @@ exports.getSinglePO = catchAsync(async (req, res, next) => {
   });
 });
 
+exports.getPOsWithInvoices = catchAsync(async (req, res, next) => {
+  let filter = {};
+  if (req.user.role === "user") {
+    filter = { createdBy: req.user._id };
+  }
+
+  let query = PurchaseOrder.find(filter);
+  query = applyAPIFeatures(query, req.query);
+
+  const POs = await query
+    .populate("vendor", "name, email, companyName")
+    .populate({
+      path: "invoices",
+      select: "invoiceNumber totalAmount status createdAt",
+      options: { sort: { createdAt: -1 } },
+    });
+
+  res.status(200).json({
+    status: "success",
+    results: POs.length,
+    data: {
+      POs,
+    },
+  });
+});
+
 exports.getOpenedPOs = catchAsync(async (req, res) => {
   let filter = {
     invoiceCreatedStatus: "open",

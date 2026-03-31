@@ -70,6 +70,15 @@ const purchaseOrderSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
+purchaseOrderSchema.set("toObject", { virtuals: true });
+purchaseOrderSchema.set("toJSON", { virtuals: true });
+
+purchaseOrderSchema.virtual("invoices", {
+  ref: "Invoice",
+  localField: "_id",
+  foreignField: "purchaseOrder",
+});
+
 const PurchaseOrder = mongoose.model("PurchaseOrder", purchaseOrderSchema);
 
 module.exports = PurchaseOrder;
