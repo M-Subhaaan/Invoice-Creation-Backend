@@ -79,8 +79,12 @@ exports.updateProduct = catchAsync(async (req, res, next) => {
   product.price = price || product.price;
   product.unit = unit || product.unit;
   if (stock !== undefined) {
-    product.stock = Number(stock);
-    product.totalStock = Number(stock);
+    const newStock = Number(stock);
+
+    if (newStock > product.stock) {
+      product.totalStock += newStock - product.stock;
+    }
+    product.stock = newStock;
   }
   await product.save();
 

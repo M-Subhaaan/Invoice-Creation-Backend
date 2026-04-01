@@ -58,6 +58,7 @@ exports.createVendor = catchAsync(async (req, res, next) => {
   if (existingVendor) {
     return next(AppError("Vendor already exists with this email", 400));
   }
+
   const vendor = await Vendor.create({
     name,
     email,

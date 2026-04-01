@@ -15,6 +15,7 @@ const vendorSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       validate: [validator.isEmail, "Please Provide a Valid Email Address"],
+      trim: true,
     },
 
     phone: {

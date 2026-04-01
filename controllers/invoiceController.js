@@ -1,6 +1,5 @@
 const fs = require("fs");
 const path = require("path");
-const mongoose = require("mongoose");
 const Invoice = require("../models/invoiceModel");
 const PurchaseOrder = require("../models/poModel");
 
