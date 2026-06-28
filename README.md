@@ -55,7 +55,7 @@ This is the backend API only and is designed to be paired with a frontend applic
 ## Tech Stack
 
 | Category | Technology |
-
+|---|---|
 | Runtime | Node.js |
 | Framework | Express 5 |
 | Database | MongoDB with Mongoose |
