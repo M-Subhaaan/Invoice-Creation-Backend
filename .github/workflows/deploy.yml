@@ -53,7 +53,6 @@ jobs:
             docker run -d \
             --name ${{ env.CONTAINER_NAME }} \
             -p ${{ env.HOST_PORT }}:${{ env.CONTAINER_PORT }} \
-            -v /bizcenter-uploads/sme-uploads:/app/uploads \
             --env-file ${{ env.ENV_FILE_PATH }} \
             --restart unless-stopped \
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
