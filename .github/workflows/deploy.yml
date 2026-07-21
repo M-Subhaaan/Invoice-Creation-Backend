@@ -1,0 +1,69 @@
+name: invoice creation backend ci/cd (yourdomain.com/backend/)
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: docker.io
+  IMAGE_NAME: subhaaan/invoice_backend
+  CONTAINER_NAME: invoice_backend
+  SERVER_PORT: 8000
+  CONTAINER_PORT: 5000
+  IMAGE_TAG: beta
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_UNAME }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          cache-from: none
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+  deploy_to_server:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: SSH & deploy container
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.EC2_SERVER_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SERVER_KEY }}
+          script: |
+            echo "Logging in to Docker Hub on remote server..."
+            echo "${{ secrets.DOCKER_PASS }}" | docker login -u "${{ secrets.DOCKER_UNAME }}" --password-stdin
+
+            echo "Stopping existing container (if any)..."
+            docker stop ${{ env.CONTAINER_NAME }} || true
+            docker rm ${{ env.CONTAINER_NAME }} || true
+
+            echo "Removing previous image (if exists)..."
+            docker rmi ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} || true
+
+            echo "Pulling latest image..."
+            docker pull ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            echo "Running container..."
+            docker run -d \
+              --name ${{ env.CONTAINER_NAME }} \
+              --restart always \
+              -p ${{ env.SERVER_PORT }}:${{ env.CONTAINER_PORT }} \
+              ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+            echo "Deployment completed!"
